@@ -1,0 +1,46 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: ./docker/php
+    container_name: servicehub-app
+    volumes:
+      - ./src:/var/www
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx:alpine
+    container_name: servicehub-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./src:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: servicehub-db
+    environment:
+      MYSQL_DATABASE: servicehub
+      MYSQL_USER: servicehub
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  node:
+    image: node:20
+    container_name: servicehub-node
+    working_dir: /var/www
+    volumes:
+      - ./src:/var/www
+    command: tail -f /dev/null
+
+volumes:
+  dbdata:
