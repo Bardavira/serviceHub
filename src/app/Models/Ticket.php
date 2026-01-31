@@ -15,6 +15,8 @@ class Ticket extends Model
         'title',
         'description',
         'attachment_path',
+        'attachment_original_name',
+        'attachment_mime',
     ];
 
     public function project()

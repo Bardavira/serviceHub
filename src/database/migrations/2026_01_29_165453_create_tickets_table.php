@@ -26,6 +26,8 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             $table->string('attachment_path')->nullable();
+            $table->string('attachment_original_name')->nullable();
+            $table->string('attachment_mime')->nullable();
 
             $table->timestamps();
         });
