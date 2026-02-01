@@ -1,35 +1,21 @@
-FROM php:8.3-fpm
+FROM php:8.3-fpm-alpine
 
-# System deps + netcat for DB wait + PHP extensions
-RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    curl \
-    libzip-dev \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    netcat-openbsd \
-    && docker-php-ext-install \
-        pdo \
-        pdo_mysql \
-        mbstring \
-        zip \
-        exif \
-        pcntl \
-    && rm -rf /var/lib/apt/lists/*
-
-# PHP-FPM pool config
-COPY www.conf /usr/local/etc/php-fpm.d/www.conf
+RUN apk add --no-cache \
+    bash curl git unzip \
+    icu-dev oniguruma-dev libzip-dev \
+    mysql-client \
+ && docker-php-ext-install pdo_mysql intl zip
 
 # Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Entrypoint
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# php-fpm pool config
+COPY www.conf /usr/local/etc/php-fpm.d/www.conf
 
 WORKDIR /var/www
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+COPY entrypoint.sh /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["php-fpm", "-F"]
