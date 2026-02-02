@@ -28,7 +28,7 @@ const prettyJson = (obj) => {
         </div>
       </div>
 
-      <Link href="/" class="underline">
+      <Link href="/tickets" class="underline">
         Back to list
       </Link>
     </div>
@@ -36,14 +36,6 @@ const prettyJson = (obj) => {
     <div class="space-y-2">
       <h2 class="text-lg font-semibold">Description</h2>
       <p class="whitespace-pre-wrap">{{ ticket.description }}</p>
-    </div>
-
-    <div class="space-y-2" v-if="ticket.attachment?.original_name">
-      <h2 class="text-lg font-semibold">Attachment</h2>
-      <div class="text-sm">
-        <div><strong>Name:</strong> {{ ticket.attachment.original_name }}</div>
-        <div><strong>MIME:</strong> {{ ticket.attachment.mime ?? '-' }}</div>
-      </div>
     </div>
 
     <div class="space-y-2">

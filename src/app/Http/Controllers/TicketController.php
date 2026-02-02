@@ -38,7 +38,7 @@ class TicketController extends Controller
                 'created_at' => $t->created_at?->toDateTimeString(),
             ]);
 
-        return Inertia::render('Index', [
+        return Inertia::render('Tickets/Index', [
             'tickets' => $tickets,
         ]);
     }
@@ -62,7 +62,7 @@ class TicketController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return Inertia::render('Create', [
+        return Inertia::render('Tickets/Create', [
             'projects' => $projects,
             'assignees' => $assignees,
         ]);
@@ -84,7 +84,7 @@ class TicketController extends Controller
             ->whereHas('project', fn ($q) => $q->where('company_id', $auth->company_id))
             ->firstOrFail();
 
-        return Inertia::render('Show', [
+        return Inertia::render('Tickets/Show', [
             'ticket' => [
                 'id' => $ticket->id,
                 'title' => $ticket->title,
