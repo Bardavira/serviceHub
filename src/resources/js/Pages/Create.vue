@@ -8,14 +8,14 @@ const props = defineProps({
 
 const form = useForm({
   project_id: props.projects?.[0]?.id ?? '',
-  user_id: props.assignees?.[0]?.id ?? '', // <- backend field
+  user_id: props.assignees?.[0]?.id ?? '',
   title: '',
   description: '',
   attachment: null,
 })
 
 function submit() {
-  form.post('/tickets', { forceFormData: true })
+  form.post('/', { forceFormData: true })
 }
 </script>
 
@@ -23,7 +23,7 @@ function submit() {
   <div style="max-width: 760px; margin: 0 auto; padding: 24px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
       <h1 style="font-size: 24px; font-weight: 700;">Create Ticket</h1>
-      <Link href="/tickets">Back</Link>
+      <Link href="/">Back</Link>
     </div>
 
     <form @submit.prevent="submit" style="display:grid; gap: 12px;">

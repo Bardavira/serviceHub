@@ -2,19 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTicketRequest;
 use App\Jobs\NotifyTicketAssignee;
-use App\Models\User;
-use Inertia\Inertia;
-use App\Models\Ticket;
-use App\Models\Project;
-use App\Models\TicketDetail;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use App\Jobs\ProcessTicketAttachment;
+use App\Models\Project;
+use App\Models\Ticket;
+use App\Models\TicketDetail;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class TicketController extends Controller
 {
+    /**
+     * Lists tickets scoped to the authenticated user's company.
+     *
+     * @return \Inertia\Response
+     */
     public function index()
     {
         $auth = Auth::user();
@@ -29,15 +34,20 @@ class TicketController extends Controller
                 'title' => $t->title,
                 'description' => $t->description,
                 'project' => $t->project,
-                'assignee' => $t->user, // transparency on the UI
+                'assignee' => $t->user,
                 'created_at' => $t->created_at?->toDateTimeString(),
             ]);
 
-        return Inertia::render('Tickets/Index', [
+        return Inertia::render('Index', [
             'tickets' => $tickets,
         ]);
     }
 
+    /**
+     * Shows the ticket creation form with projects and assignee options scoped to the company.
+     *
+     * @return \Inertia\Response
+     */
     public function create()
     {
         $auth = Auth::user();
@@ -47,46 +57,67 @@ class TicketController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        // Assignee options: users from same company
         $assignees = User::query()
             ->where('company_id', $auth->company_id)
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return Inertia::render('Tickets/Create', [
+        return Inertia::render('Create', [
             'projects' => $projects,
             'assignees' => $assignees,
         ]);
     }
 
-    public function store(Request $request)
+    /**
+     * Shows a single ticket (scoped by authenticated user's company).
+     *
+     * @param Ticket $ticket
+     * @return \Inertia\Response
+     */
+    public function show(Ticket $ticket)
     {
         $auth = Auth::user();
 
-        $data = $request->validate([
-            'project_id' => ['required', 'integer', 'exists:projects,id'],
-            'user_id' => ['required', 'integer', 'exists:users,id'], // <- assignee stored as tickets.user_id
-            'title' => ['required', 'string', 'max:200'],
-            'description' => ['required', 'string', 'max:5000'],
-            'attachment' => ['nullable', 'file', 'max:2048', 'mimes:txt,json'],
+        $ticket = Ticket::query()
+            ->with(['project:id,name,company_id', 'user:id,name', 'detail'])
+            ->whereKey($ticket->id)
+            ->whereHas('project', fn ($q) => $q->where('company_id', $auth->company_id))
+            ->firstOrFail();
+
+        return Inertia::render('Show', [
+            'ticket' => [
+                'id' => $ticket->id,
+                'title' => $ticket->title,
+                'description' => $ticket->description,
+                'created_at' => $ticket->created_at?->toDateTimeString(),
+                'project' => $ticket->project,
+                'assignee' => $ticket->user,
+                'attachment' => [
+                    'original_name' => $ticket->attachment_original_name,
+                    'mime' => $ticket->attachment_mime,
+                    'path' => $ticket->attachment_path,
+                ],
+                'detail' => [
+                    'technical_data' => $ticket->detail?->technical_data,
+                ],
+            ],
         ]);
+    }
 
-        // Scope checks: project and assignee must belong to same company as auth user
-        $projectOk = Project::query()
-            ->whereKey($data['project_id'])
-            ->where('company_id', $auth->company_id)
-            ->exists();
-
-        $assigneeOk = User::query()
-            ->whereKey($data['user_id'])
-            ->where('company_id', $auth->company_id)
-            ->exists();
-
-        abort_unless($projectOk && $assigneeOk, 403);
+    /**
+     * Persists a new ticket, optionally stores an attachment, then dispatches background jobs.
+     *
+     * @param StoreTicketRequest $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function store(StoreTicketRequest $request)
+    {
+        $data = $request->validated();
 
         $stored = null;
         if ($request->hasFile('attachment')) {
             $file = $request->file('attachment');
+
             $stored = [
                 'path' => $file->store('ticket_attachments', 'local'),
                 'original_name' => $file->getClientOriginalName(),
@@ -97,7 +128,7 @@ class TicketController extends Controller
         $ticketId = DB::transaction(function () use ($data, $stored) {
             $ticket = Ticket::create([
                 'project_id' => $data['project_id'],
-                'user_id' => $data['user_id'], // assignee/responsible
+                'user_id' => $data['user_id'],
                 'title' => $data['title'],
                 'description' => $data['description'],
                 'attachment_path' => $stored['path'] ?? null,
@@ -113,8 +144,7 @@ class TicketController extends Controller
             return $ticket->id;
         });
 
-
-        if(!empty($stored['path'])) {
+        if (!empty($stored['path'])) {
             ProcessTicketAttachment::dispatch($ticketId)->afterCommit();
         }
 

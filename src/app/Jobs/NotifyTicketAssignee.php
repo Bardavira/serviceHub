@@ -14,15 +14,23 @@ class NotifyTicketAssignee implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * @param int $ticketId Ticket id to notify the assignee for.
+     */
     public function __construct(public int $ticketId) {}
 
+    /**
+     * Loads the ticket and notifies the assigned user.
+     *
+     * @return void
+     */
     public function handle(): void
     {
         $ticket = Ticket::query()
-            ->with('user') // user = assignee
+            ->with('user')
             ->findOrFail($this->ticketId);
 
-        // Safety: user might be null if data got weird
+        // Ticket assignee can be null (invalid data or ticket unassigned).
         if (!$ticket->user) {
             return;
         }

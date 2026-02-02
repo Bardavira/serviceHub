@@ -13,13 +13,12 @@ class TicketAssigned extends Notification implements ShouldQueue
     use Queueable;
 
     /**
-     * Create a new notification instance.
+     * @param int $ticketId Ticket id used to build the email content.
      */
     public function __construct(public int $ticketId) {}
 
     /**
-     * Get the notification's delivery channels.
-     *
+     * @param object $notifiable
      * @return array<int, string>
      */
     public function via(object $notifiable): array
@@ -28,7 +27,8 @@ class TicketAssigned extends Notification implements ShouldQueue
     }
 
     /**
-     * Get the mail representation of the notification.
+     * @param object $notifiable
+     * @return MailMessage
      */
     public function toMail(object $notifiable): MailMessage
     {
@@ -36,26 +36,25 @@ class TicketAssigned extends Notification implements ShouldQueue
             ->with(['project:id,name', 'detail'])
             ->findOrFail($this->ticketId);
 
+        $projectName = $ticket->project?->name ?? 'N/A';
+
         return (new MailMessage)
-            ->subject("ServiceHub: Ticket #{$ticket->id} enriched")
+            ->subject("ServiceHub: Ticket #{$ticket->id} assigned")
             ->greeting("Hi {$notifiable->name},")
-            ->line("A ticket was assigned to you.")
-            ->line("Project: {$ticket->project?->name}")
+            ->line('A ticket was assigned to you.')
+            ->line("Project: {$projectName}")
             ->line("Title: {$ticket->title}")
             ->line("Description: {$ticket->description}")
-            ->action('Open Ticket List', url('/tickets'))
+            ->action('Open Tickets', url('/tickets'))
             ->line('— ServiceHub');
     }
 
     /**
-     * Get the array representation of the notification.
-     *
+     * @param object $notifiable
      * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 }

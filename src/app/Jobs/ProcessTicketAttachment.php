@@ -15,12 +15,20 @@ class ProcessTicketAttachment implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * @param int $ticketId Ticket id to enrich technical_data for.
+     */
     public function __construct(public int $ticketId) {}
 
+    /**
+     * Reads the stored attachment and merges a normalized payload into TicketDetail.technical_data.
+     *
+     * @return void
+     */
     public function handle(): void
     {
         $ticket = Ticket::query()
-            ->with(['detail', 'user']) // user = assignee
+            ->with(['detail'])
             ->findOrFail($this->ticketId);
 
         if (!$ticket->attachment_path) {
@@ -43,15 +51,15 @@ class ProcessTicketAttachment implements ShouldQueue
         }
 
         $contents = Storage::disk($disk)->get($path);
-        $mime = (string) ($ticket->attachment_mime ?? '');
+        $mime = $this->defineMime($ticket, $disk);
 
-        // Start from existing technical_data (array) or empty
+        // Start from existing technical_data (or empty).
         $technical = $ticket->detail->technical_data ?? [];
 
-        // Build a normalized “attachment payload”
+        // Normalize attachment payload into a consistent structure.
         $attachmentPayload = $this->parseAttachment($contents, $mime);
 
-        // Merge in a safe namespace to avoid overwriting other keys
+        // Store under a dedicated namespace to avoid overwriting other keys.
         $technical['attachment'] = [
             'processed_at' => now()->toIso8601String(),
             'mime' => $mime ?: null,
@@ -65,11 +73,40 @@ class ProcessTicketAttachment implements ShouldQueue
         ]);
     }
 
+    /**
+     * Resolves the attachment MIME type (stored value first, then Storage detection).
+     *
+     * @param Ticket $ticket
+     * @param string $disk
+     * @return string
+     */
+    public function defineMime(Ticket $ticket, string $disk): string
+    {
+        if ($ticket->attachment_mime) {
+            return (string) $ticket->attachment_mime;
+        }
+
+        $detected = Storage::disk($disk)->mimeType($ticket->attachment_path);
+        if ($detected) {
+            return (string) $detected;
+        }
+
+        return '';
+    }
+
+    /**
+     * Parses attachment contents into a consistent payload:
+     * type + value + meta (text preview / json keys).
+     *
+     * @param string $contents
+     * @param string $mime
+     * @return array{type:string,value:mixed,meta:array<string,mixed>}
+     */
     private function parseAttachment(string $contents, string $mime): array
     {
-        // Prefer JSON if mime says so, else try decoding
         $decoded = null;
 
+        // Prefer JSON when MIME indicates it, otherwise attempt best-effort decoding.
         if (str_contains($mime, 'json')) {
             $decoded = json_decode($contents, true);
         } else {
@@ -83,19 +120,30 @@ class ProcessTicketAttachment implements ShouldQueue
             return [
                 'type' => 'json',
                 'value' => $decoded,
+                'meta' => [
+                    'keys' => array_slice(array_keys($decoded), 0, 20),
+                ],
             ];
         }
 
         $text = trim($contents);
-        $preview = mb_substr($text, 0, 300);
-        if (mb_strlen($text) > 300) {
+
+        $maxPreview = 300;
+        $length = mb_strlen($text);
+
+        // Keep a short preview to avoid storing large blobs.
+        $preview = mb_substr($text, 0, $maxPreview);
+        if ($length > $maxPreview) {
             $preview .= '…';
         }
 
         return [
             'type' => 'text',
-            'length' => strlen($text),
-            'preview' => $preview,
+            'value' => $text,
+            'meta' => [
+                'length' => $length,
+                'preview' => $preview,
+            ],
         ];
     }
 }
