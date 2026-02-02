@@ -22,8 +22,8 @@ class TicketFactory extends Factory
         return [
             'project_id' => Project::factory(),
             'user_id' => User::factory(),
-            'title' => $this->faker->sentence(6),
-            'description' => $this->faker->paragraph(3),
+            'title' => fake()->sentence(6),
+            'description' => fake()->paragraph(3),
             'attachment_path' => null,
             'attachment_original_name' => null,
             'attachment_mime' => null,

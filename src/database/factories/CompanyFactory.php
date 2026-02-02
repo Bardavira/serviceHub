@@ -12,13 +12,10 @@ class CompanyFactory extends Factory
 {
     protected $model = Company::class;
 
-    /**
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            'name' => $this->faker->unique()->company(),
+            'name' => fake()->company()
         ];
     }
 }

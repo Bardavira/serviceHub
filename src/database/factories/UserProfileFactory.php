@@ -20,8 +20,8 @@ class UserProfileFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'phone' => $this->faker->e164PhoneNumber(),
-            'role' => $this->faker->jobTitle(),
+            'phone' => fake()->e164PhoneNumber,
+            'role' => fake()->jobTitle,
         ];
     }
 }

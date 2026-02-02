@@ -20,7 +20,7 @@ class ProjectFactory extends Factory
     {
         return [
             'company_id' => Company::factory(),
-            'name' => $this->faker->unique()->words(2, true),
+            'name' => fake()->unique()->words(2, true),
         ];
     }
 }
